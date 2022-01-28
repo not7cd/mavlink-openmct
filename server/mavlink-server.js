@@ -14,7 +14,8 @@ function install(app, config = {
     }
 }) {
     // console.log(messageRegistry);
-    var mavlinkParser = new mavlink.MAVLinkModule(messageRegistry.messageRegistry);
+    var mavlinkParser = new mavlink.MAVLinkModule(messageRegistry.messageRegistry, auto_negitiate = true);
+
 
 
     if (config.type === "serial") {
@@ -32,16 +33,18 @@ function install(app, config = {
         /**
          * Set the UDP socket
          */
+        mavlinkParser.upgradeLink();
         const udpServer = dgram.createSocket('udp4');
 
         udpServer.on('message', (msg, rinfo) => {
+            // console.log(msg)
             mavlinkParser.parse(msg);
         })
 
         udpServer.on('listening', () => {
             const address = udpServer.address();
 
-            console.log('UDP server listening ${address.address}:${address.port}');
+            console.log(`UDP server listening ${address.address}:${address.port}`);
         })
 
         udpServer.bind(config.port);
@@ -57,13 +60,12 @@ function install(app, config = {
     console.log('Setting up MAVLINK websocket server')
 
     mavlinkParser.on('error', function (e) {
-        console.log(e);
+         console.log(e);
     });
 
     mavlinkParser.on('message', function (message) {
         // event listener for all messages  
         let utcTime = new Date().getTime()
-
         mavlinkSubscriptions.forEach(
             (clientSubscriptions, clientIndex) => {
                 if (mavlinkDataClients[clientIndex].readyState === 1) {
@@ -71,12 +73,80 @@ function install(app, config = {
                     clientSubscriptions.forEach((subscribedMessage) => {
 
                         let messageNameComponents = subscribedMessage.split('.');
+			
+			// TODO: This all should be gone, and is unacceptable
+                        if ((messageNameComponents[0].toUpperCase() === "SIMBA") && (message._message_name === "DEBUG")) {
+                            const ind = message["ind"]
+                            let messageJSON = {
+                                'timestamp': utcTime,
+                                'value': message["value"],
+                                'key': null
+                            }
+                            switch (ind) {
+                                case 10:
+                                    messageJSON["key"] = "simba.pressure"
+                                    break;
+                                case 11:
+                                    messageJSON["key"] = "simba.temp_1"
+                                    break;
+                                case 12:
+                                    messageJSON["key"] = "simba.temp_2"
+                                    break;
+                                case 13:
+                                    messageJSON["key"] = "simba.weight"
+                                    break;
+                                case 14:
+                                    messageJSON["key"] = "simba.temp_outside"
+                                    break;
+                                default:
+                                    break;
+                            }
 
+                            mavlinkDataClients[clientIndex].send(JSON.stringify(messageJSON))
+                        }
+                        if ((messageNameComponents[0].toUpperCase() === "SIMBA_STATUS") && (message._message_name === "DEBUG")) {
+        
+                            const ind = message["ind"]
+                            let messageJSON = {
+                                'timestamp': utcTime,
+                                'value': message["value"],
+                                'key': null
+                            }
+                            switch (ind) {
+                                case 1:
+                                    messageJSON["key"] = "simba_status.armed"
+                                    break
+                                case 2:
+                                    messageJSON["key"] = "simba_status.valve_venting"
+                                    break
+                                case 3:
+                                    messageJSON["key"] = "simba_status.primer"
+                                    break
+                                case 4:
+                                    messageJSON["key"] = "simba_status.valve_main"
+                                    break
+                                case 5:
+                                    messageJSON["key"] = "simba_status.recovery_pilot"
+                                    break
+                                case 6:
+                                    messageJSON["key"] = "simba_status.recovery_main"
+                                    break
+                                case 99:
+                                    messageJSON["key"] = "simba_status.abort"
+                                    break
+                                default:
+                                    break;
+                            }
+
+                            mavlinkDataClients[clientIndex].send(JSON.stringify(messageJSON))
+                        }
                         if ((messageNameComponents[0].toUpperCase() === message._message_name) || (subscribedMessage === "subscribeAll")) {
+                            // console.log(messageNameComponents)
+                            // console.log(message)
 
                             let messageJSON = {
                                 'timestamp': utcTime,
-                                'value': message[messageNameComponents[1].toUpperCase()],
+                                'value': message[messageNameComponents[1]],
                                 'key': subscribedMessage
                             }
 

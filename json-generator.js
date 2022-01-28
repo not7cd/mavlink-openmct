@@ -15,7 +15,9 @@ messageRegistry.forEach(message =>
         let group_name = messageObj._message_name
         let group_key = group_name.toLowerCase()
 
-        //messageObj._message_fields.forEach(field => {console.log(field[0])})
+        console.log(message)
+
+        // messageObj._message_fields.forEach(field => {console.log(field[0])})
 
         telemetryDict.telemetryGroups.push(
             {
@@ -54,9 +56,9 @@ messageRegistry.forEach(message =>
     }
 )
 
-console.log(JSON.stringify(telemetryDict, null, ' '))
+// console.log(JSON.stringify(telemetryDict, null, ' '))
 
-fs.writeFile('telemetry-messages.json', JSON.stringify(telemetryDict), (err) => {
+fs.writeFile('telemetry-messages-e.json', JSON.stringify(telemetryDict), (err) => {
     if (err !== null) {
     console.log(err)
     }
